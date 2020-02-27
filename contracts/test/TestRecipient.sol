@@ -9,7 +9,7 @@ import "./TestSponsorConfigurableMisbehavior.sol";
 contract TestRecipient is BaseRelayRecipient {
 
     function setHub(IRelayHub _relayHub) public {
-        relayHub = _relayHub;
+        // relayHub = _relayHub;
     }
 
     event Reverting(string message);

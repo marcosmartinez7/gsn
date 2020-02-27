@@ -11,6 +11,7 @@ const TestSponsor = artifacts.require('tests/TestSponsorEverythingAccepted')
 const TestSponsorApproval = artifacts.require('tests/TestSponsorPreconfiguredApproval')
 
 const RelayHub = artifacts.require('RelayHub')
+const TrustedForwarder = artifacts.require('TrustedForwarder')
 
 const RelayProvider = require('../src/js/relayclient/RelayProvider')
 
@@ -25,6 +26,7 @@ options.forEach(params => {
     let sr
     let gasSponsor
     let rhub
+    let trustedForwarder
     const accounts = acc
     let gasless
     let relayproc
@@ -40,7 +42,8 @@ options.forEach(params => {
 
       if (params.relay) {
         // rhub = await RelayHub.deployed()
-        rhub = await RelayHub.new({ gas: 8000000 })
+        trustedForwarder = await TrustedForwarder.new()
+        rhub = await RelayHub.new(trustedForwarder.address, { gas: 8000000 })
         relayproc = await testutils.startRelay(rhub, {
           stake: 1e18,
           delay: 3600 * 24 * 7,

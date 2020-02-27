@@ -39,7 +39,7 @@ module.exports = function getDataToSign (
     gasPrice,
     gasLimit,
     gasSponsor,
-    relayHub,
+    verifier,
     relayAddress
   }
 ) {
@@ -48,7 +48,7 @@ module.exports = function getDataToSign (
     name: 'GSN Relayed Transaction',
     version: '1',
     chainId: chainId,
-    verifyingContract: relayHub
+    verifyingContract: verifier
   }
 
   const callData = new CallData({

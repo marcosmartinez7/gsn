@@ -10,29 +10,31 @@ import "./interfaces/IRelayHub.sol";
  */
 contract BaseRelayRecipient {
 
-    /// The RelayHub singleton that is allowed to call us
-    IRelayHub internal relayHub;
+    /// the TrustedForwarder singleton we accept calls from.
+    // we trust it to verify the caller's signature, and pass the caller's address as last 20 bytes
+    address internal trustedForwarder;
 
     /*
-     * modifier to be used by recipients as access control protection for preRelayedCall & postRelayedCall
+     * require a function to be called through GSN only
      */
-    modifier relayHubOnly() {
-        require(msg.sender == address(relayHub), "Function can only be called by RelayHub");
+    modifier trustedForwarderOnly() {
+        require(msg.sender == address(trustedForwarder), "Function can only be called by trustedForwarder");
         _;
     }
 
-    function getHubAddr() public view returns (address) {
-        return address(relayHub);
+    function getTrustedForwarder() public view returns(address) {
+        return trustedForwarder;
     }
+
     /**
      * return the sender of this call.
-     * if the call came through the valid RelayHub, return the original sender.
+     * if the call came through our trusted forwarder, return the original sender.
      * otherwise, return `msg.sender`
      * should be used in the contract anywhere instead of msg.sender
      */
     function getSender() public view returns (address) {
-        if (msg.sender == address(relayHub)) {
-            // At this point we know that the sender is a trusted IRelayHub,
+        if (msg.sender == address(getTrustedForwarder())) {
+            // At this point we know that the sender is a trusted forwarder,
             // so we trust that the last bytes of msg.data are the verified sender address.
             // extract sender address from the end of msg.data
             return LibBytes.readAddress(msg.data, msg.data.length - 20);

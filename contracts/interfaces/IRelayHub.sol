@@ -256,5 +256,7 @@ interface IRelayHub {
     function penalizeIllegalTransaction(bytes calldata unsignedTx, bytes calldata signature) external;
 
     function getNonce(address from) external view returns (uint256);
+
+    function getTrustedForwarder() external view returns (address);
 }
 

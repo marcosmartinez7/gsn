@@ -41,7 +41,7 @@ module.exports = {
       gasPrice,
       gasLimit,
       gasSponsor,
-      relayHub,
+      verifier,
       relayAddress
     }) {
     if (
@@ -63,7 +63,7 @@ module.exports = {
       gasPrice,
       gasLimit,
       gasSponsor,
-      relayHub,
+      verifier,
       relayAddress
     })
     if (jsonStringifyRequest) {

@@ -14,6 +14,23 @@ const sigUtil = require('eth-sig-util')
 
 const getDataToSign = require('./EIP712/Eip712Helper')
 const relayHubAbi = require('./interfaces/IRelayHub')
+
+const relayRecipientAbi = [{
+  'constant': true,
+  'inputs': [],
+  'name': 'getTrustedForwarder',
+  'outputs': [
+    {
+      'internalType': 'address',
+      'name': 'addr',
+      'type': 'address'
+    }],
+  'payable': false,
+  'stateMutability': 'view',
+  'type': 'function'
+}]
+
+
 // This file is only needed so we don't change IRelayHub code, which would affect RelayHub expected deployed address
 // TODO: Once we change RelayHub version, we should add abstract method "function version() external returns (string memory);" to IRelayHub.sol and remove IRelayHubVersionAbi.json
 const versionAbi = require('./IRelayHubVersionAbi')
@@ -81,6 +98,10 @@ class RelayClient {
 
   createRelayHub (addr) {
     return new this.web3.eth.Contract(relayHubAbi, addr)
+  }
+
+  createRelayRecipient(addr) {
+    return new this.web3.eth.Contract(relayRecipientAbi,addr)
   }
 
   /**
@@ -299,14 +320,8 @@ class RelayClient {
     const gasSponsor = options.gasSponsor || options.to
     const relayHub = await this.createRelayHubFromSponsor(gasSponsor)
 
-    // TODO: refactor! wrong instance is created for accidentally same method!
-    if (!utils.isSameAddress(gasSponsor, options.to)) {
-      const recipientHub = await this.createGasSponsor(options.to).methods.getHubAddr().call()
-
-      if (!utils.isSameAddress(relayHub._address, recipientHub)) {
-        throw Error('Sponsor and recipient RelayHub addresses do not match')
-      }
-    }
+    const recipientForwarder = await this.createRelayRecipient(options.to).methods.getTrustedForwarder().call()
+    //no need to check the forwarder with the sponsor: if needed, it is checked on-chain.
 
     const nonce = parseInt(await relayHub.methods.getNonce(options.from).call())
 
@@ -365,7 +380,7 @@ class RelayClient {
           gasPrice,
           gasLimit,
           gasSponsor,
-          relayHub: relayHub._address,
+          verifier: recipientForwarder,
           relayAddress
         })
         signature = sigUtil.signTypedData_v4(self.ephemeralKeypair.privateKey, { data: signedData })
@@ -383,7 +398,7 @@ class RelayClient {
             gasPrice: gasPrice.toString(),
             gasLimit: gasLimit.toString(),
             gasSponsor,
-            relayHub: relayHub._address,
+            verifier: recipientForwarder,
             relayAddress
           })
         signature = eip712Sig.signature

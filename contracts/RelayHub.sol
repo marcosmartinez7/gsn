@@ -13,6 +13,7 @@ import "./utils/GsnUtils.sol";
 import "./utils/RLPReader.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IGasSponsor.sol";
+import "./TrustedForwarder.sol";
 
 contract RelayHub is IRelayHub {
 
@@ -41,7 +42,7 @@ contract RelayHub is IRelayHub {
     */
 
     // Gas cost of all relayCall() instructions before first gasleft() and after last gasleft()
-    uint256 constant private GAS_OVERHEAD = 54756;
+    uint256 constant private GAS_OVERHEAD = 54626;
 
     // Gas cost of all relayCall() instructions after first gasleft() and before last gasleft()
     uint256 constant private GAS_RESERVE = 100000;
@@ -77,10 +78,14 @@ contract RelayHub is IRelayHub {
 
     string public version = "1.0.0";
 
-    EIP712Sig private eip712sig;
+    TrustedForwarder private trustedForwarder;
 
-    constructor () public {
-        eip712sig = new EIP712Sig(address(this));
+    constructor (TrustedForwarder tc) public {
+        trustedForwarder = tc; //new TrustedForwarder();
+    }
+
+    function getTrustedForwarder() external view returns (address) {
+        return address(trustedForwarder);
     }
 
     function stake(address relay, uint256 unstakeDelay) external payable {
@@ -232,7 +237,7 @@ contract RelayHub is IRelayHub {
     public view returns (uint256 status, bytes memory recipientContext)
     {
         // Verify the sender's signature on the transaction - note that approvalData is *not* signed
-        if (!eip712sig.verify(relayRequest, signature)) {
+        if (!trustedForwarder.verify(relayRequest, signature)) {
             return (uint256(PreconditionCheck.WrongSignature), "");
         }
 
@@ -338,8 +343,8 @@ contract RelayHub is IRelayHub {
         RelayCallStatus status;
         uint256 preChecksGas = initialGas - gasleft();
         bytes memory data =
-        abi.encodeWithSelector(this.recipientCallsAtomic.selector, relayRequest, preChecksGas, recipientContext);
-        (, bytes memory relayCallStatus) = address(this).call(data);
+        abi.encodeWithSelector(this.recipientCallsAtomic.selector, relayRequest, preChecksGas, signature, recipientContext);
+        (, bytes memory relayCallStatus) =  address(this).call(data);
         status = abi.decode(relayCallStatus, (RelayCallStatus));
 
         // We now perform the actual charge calculation, based on the measured gas used
@@ -375,6 +380,7 @@ contract RelayHub is IRelayHub {
     function recipientCallsAtomic(
         EIP712Sig.RelayRequest calldata relayRequest,
         uint256 preChecksGas,
+        bytes calldata signature,
         bytes calldata recipientContext
     )
     external
@@ -414,8 +420,10 @@ contract RelayHub is IRelayHub {
 
         // The actual relayed call is now executed. The sender's address is appended at the end of the transaction data
         (atomicData.relayedCallSuccess,) =
-        relayRequest.callData.target.call.gas(relayRequest.callData.gasLimit)
-        (abi.encodePacked(relayRequest.callData.encodedFunction, relayRequest.relayData.senderAccount));
+//        relayRequest.callData.target.call.gas(relayRequest.callData.gasLimit)
+//        (abi.encodePacked(relayRequest.callData.encodedFunction, relayRequest.relayData.senderAccount));
+
+            trustedForwarder.verifyAndCall(relayRequest, signature);
 
         // Finally, postRelayedCall is executed, with the relayedCall execution's status and a charge estimate
         // We now determine how much the recipient will be charged, to pass this value to postRelayedCall for accurate

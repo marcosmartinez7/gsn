@@ -3,6 +3,7 @@ const RelayClient = require('../src/js/relayclient/RelayClient')
 const RelayProvider = require('../src/js/relayclient/RelayProvider')
 const utils = require('../src/js/relayclient/utils')
 const RelayHub = artifacts.require('./RelayHub.sol')
+const TrustedForwarder = artifacts.require('TrustedForwarder')
 const SampleRecipient = artifacts.require('./test/TestRecipient.sol')
 const TestEverythingAcceptedSponsor = artifacts.require('./test/TestSponsorEverythingAccepted.sol')
 const TestSponsorOwnerSignature = artifacts.require('./test/TestSponsorOwnerSignature.sol')
@@ -35,6 +36,7 @@ const request = util.promisify(require('request'))
 
 contract('RelayClient', function (accounts) {
   let rhub
+  let trustedForwarder
   let sr
   let gasSponsor
   let gasLess
@@ -51,6 +53,8 @@ contract('RelayClient', function (accounts) {
     gasPrice = (await web3.eth.getGasPrice()) * (100 + gasPricePercent) / 100
 
     rhub = await RelayHub.deployed()
+    trustedForwader = await TrustedForwarder.deployed()
+    trustedForwarder = await TrustedForwarder.deployed()
     sr = await SampleRecipient.deployed()
     gasSponsor = await TestEverythingAcceptedSponsor.deployed()
 
@@ -253,9 +257,14 @@ contract('RelayClient', function (accounts) {
 
     let res = await sr.emitMessage('hello world', { from: gasLess, gasSponsor: gasSponsor.address })
     assert.equal(res.logs[0].event, 'SampleRecipientEmitted')
+    assert.deepInclude(res.logs[0].args, {
+      message: 'hello world',
+      realSender: gasLess,
+      msgSender: trustedForwarder.address
+    })
     assert.equal(res.logs[0].args.message, 'hello world')
     assert.equal(res.logs[0].args.realSender, gasLess)
-    assert.equal(res.logs[0].args.msgSender.toLowerCase(), rhub.address.toLowerCase())
+    assert.equal(res.logs[0].args.msgSender, trustedForwarder.address)
     res = await sr.emitMessage('hello again', { from: accounts[3], gasSponsor: gasSponsor.address })
     assert.equal(res.logs[0].event, 'SampleRecipientEmitted')
     assert.equal(res.logs[0].args.message, 'hello again')
@@ -286,7 +295,7 @@ contract('RelayClient', function (accounts) {
     assert.equal(res.logs[0].event, 'SampleRecipientEmitted')
     assert.equal(res.logs[0].args.message, 'hello world'.repeat(1000))
     assert.equal(res.logs[0].args.realSender, gasLess)
-    assert.equal(res.logs[0].args.msgSender.toLowerCase(), rhub.address.toLowerCase())
+    assert.equal(res.logs[0].args.msgSender, trustedForwader.address)
     res = await sr.emitMessage('hello again'.repeat(1000), { from: accounts[3], gasSponsor: gasSponsor.address })
     assert.equal(res.logs[0].event, 'SampleRecipientEmitted')
     assert.equal(res.logs[0].args.message, 'hello again'.repeat(1000))

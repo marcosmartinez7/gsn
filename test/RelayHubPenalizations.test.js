@@ -3,6 +3,7 @@ const { balance, BN, ether, expectEvent, expectRevert, send, time } = require('@
 const { getEip712Signature, getRelayRequest } = require('../src/js/relayclient/utils')
 
 const RelayHub = artifacts.require('RelayHub')
+const TrustedForwarder = artifacts.require('TrustedForwarder')
 const SampleRecipient = artifacts.require('./test/TestRecipient')
 const TestSponsor = artifacts.require('./test/TestSponsorEverythingAccepted')
 const Transaction = require('ethereumjs-tx')
@@ -13,11 +14,13 @@ const { expect } = require('chai')
 
 contract('RelayHub Penalizations', function ([_, relayOwner, relay, otherRelay, sender, other]) { // eslint-disable-line no-unused-vars
   let relayHub
+  let trustedForwarder
   let recipient
   let gasSponsor
 
   before(async function () {
-    relayHub = await RelayHub.new({ gas: 8000000 })
+    const trustedForwarder  = await TrustedForwarder.new()
+    relayHub = await RelayHub.new(trustedForwarder.address, { gas: 8000000 })
     recipient = await SampleRecipient.new()
     gasSponsor = await TestSponsor.new()
     await recipient.setHub(relayHub.address)

@@ -29,7 +29,7 @@ contract TokenRecipient is BaseRelayRecipient {
      * @param _txPrice - amount of tokens to take for each request.
      */
     constructor(IRelayHub _rhub, address _tokenHolder, IERC20 _token, uint _txPrice) public {
-        relayHub = _rhub;
+        // relayHub = _rhub;
         mytoken = _token;
         txPrice = _txPrice;
         tokenHolder = _tokenHolder;

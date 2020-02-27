@@ -38,6 +38,12 @@ module.exports = {
       },
       network_id: 3
     },
+    kovan: {
+      provider: function () {
+        return new HDWalletProvider(mnemonic, 'https://kovan.infura.io/v3/c3422181d0594697a38defe7706a1e5b')
+      },
+      network_id: 42
+    },
     xdai_poa_mainnet: {
       provider: function () {
         const wallet = new HDWalletProvider(secretMnemonic, 'https://dai.poa.network')

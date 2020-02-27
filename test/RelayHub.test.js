@@ -3,6 +3,7 @@ const { balance, BN, ether, expectEvent, expectRevert, time } = require('@openze
 const { getEip712Signature, getRelayRequest } = require('../src/js/relayclient/utils')
 
 const RelayHub = artifacts.require('RelayHub')
+const TrustedForwarder = artifacts.require('TrustedForwarder')
 const TestSponsor = artifacts.require('./test/TestSponsorEverythingAccepted')
 const SampleRecipient = artifacts.require('./test/TestRecipient')
 const TestSponsorStoreContext = artifacts.require('./test/TestSponsorStoreContext')
@@ -28,11 +29,13 @@ contract('RelayHub', function ([_, relayOwner, relay, otherRelay, sender, other,
   }
 
   let relayHub
+  let trustedForwarder
   let recipient
   let gasSponsor
 
   beforeEach(async function () {
-    relayHub = await RelayHub.new({ gas: 8000000 })
+    trustedForwarder  = await TrustedForwarder.new()
+    relayHub = await RelayHub.new(trustedForwarder.address, { gas: 8000000 })
     recipient = await SampleRecipient.new()
     gasSponsor = await TestSponsor.new()
     await recipient.setHub(relayHub.address)
@@ -231,7 +234,7 @@ contract('RelayHub', function ([_, relayOwner, relay, otherRelay, sender, other,
           await expectEvent.inTransaction(tx, SampleRecipient, 'SampleRecipientEmitted', {
             message,
             realSender: sender,
-            msgSender: relayHub.address,
+            msgSender: trustedForwarder.address,
             origin: relay
           })
         })
@@ -252,7 +255,7 @@ contract('RelayHub', function ([_, relayOwner, relay, otherRelay, sender, other,
           await expectEvent.inTransaction(tx, SampleRecipient, 'SampleRecipientEmitted', {
             message: messageWithNoParams,
             realSender: sender,
-            msgSender: relayHub.address,
+            msgSender: trustedForwarder.address,
             origin: relay
           })
         })

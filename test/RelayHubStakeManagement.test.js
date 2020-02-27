@@ -5,16 +5,20 @@ const TestRecipientUtils = artifacts.require('./TestRecipientUtils.sol')
 const SampleRecipient = artifacts.require('./test/TestRecipient')
 const TestSponsor = artifacts.require('./test/TestSponsorEverythingAccepted')
 const RelayHub = artifacts.require('RelayHub')
+const TrustedForwarder = artifacts.require('TrustedForwarder')
 
 const { expect } = require('chai')
 
 contract('RelayHub Stake Management', function ([_, relayOwner, relay, otherRelay, sender, other, dest]) { // eslint-disable-line no-unused-vars
   let relayHub
+  let trustedForwarder
   let recipient
   let gasSponsor
 
   beforeEach(async function () {
-    relayHub = await RelayHub.new({ gas: 8000000 })
+    trustedForwarder = await TrustedForwarder.new()
+    relayHub = await RelayHub.new(trustedForwarder.address, { gas: 8000000 })
+
     recipient = await SampleRecipient.new()
     gasSponsor = await TestSponsor.new()
     await recipient.setHub(relayHub.address)
