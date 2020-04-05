@@ -1,16 +1,16 @@
 /* global contract artifacts before it */
 
-const Environments = require('../src/js/relayclient/Environments')
+const Environments = require('../src/relayclient/Environments')
 
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted.sol')
 const RelayHub = artifacts.require('RelayHub.sol')
 const TrustedBatchForwarder = artifacts.require('./TrustedBatchForwarder.sol')
 const TestRecipient = artifacts.require('TestRecipient.sol')
-const { getEip712Signature } = require('../src/js/common/utils')
-const getDataToSign = require('../src/js/common/EIP712/Eip712Helper')
+const { getEip712Signature } = require('../src/common/utils')
+const getDataToSign = require('../src/common/EIP712/Eip712Helper')
 const { expectEvent } = require('@openzeppelin/test-helpers')
 
-const RelayRequest = require('../src/js/common/EIP712/RelayRequest')
+const RelayRequest = require('../src/common/EIP712/RelayRequest')
 
 contract('TrustedBatchForwarder', ([from, relay, relayOwner]) => {
   let paymaster, recipient, hub, forwarder
