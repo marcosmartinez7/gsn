@@ -1,9 +1,12 @@
 /* global contract artifacts before it */
 
+import { ether } from "@openzeppelin/test-helpers"
+
 const Environments = require('../src/relayclient/Environments')
 
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted.sol')
 const RelayHub = artifacts.require('RelayHub.sol')
+const StakeManager = artifacts.require('StakeManager')
 const TrustedBatchForwarder = artifacts.require('./TrustedBatchForwarder.sol')
 const TestRecipient = artifacts.require('TestRecipient.sol')
 const { getEip712Signature } = require('../src/common/utils')
@@ -12,7 +15,7 @@ const { expectEvent } = require('@openzeppelin/test-helpers')
 
 const RelayRequest = require('../src/common/EIP712/RelayRequest')
 
-contract('TrustedBatchForwarder', ([from, relay, relayOwner]) => {
+contract.only('TrustedBatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
   let paymaster, recipient, hub, forwarder
   let sharedRelayRequestData
   const chainId = Environments.defEnv.chainId
@@ -20,12 +23,19 @@ contract('TrustedBatchForwarder', ([from, relay, relayOwner]) => {
   before(async () => {
     const paymasterDeposit = 1e18.toString()
 
-    hub = await RelayHub.new(16, { gas: 1e7 })
-    await hub.stake(relay, 7 * 24 * 3600, {
-      from: relayOwner,
-      value: 2e18
+    const stakeManager = await StakeManager.new()
+    hub = await RelayHub.new(Environments.defEnv.gtxdatanonzero, stakeManager.address, { gas: 10000000 })
+    const relayHub = hub
+    await stakeManager.stakeForAddress(relayManager, 2000, {
+      value: ether('2'),
+      from: relayOwner
     })
-    await hub.registerRelay(2e16.toString(), '10', 'url', { from: relay })
+    await stakeManager.authorizeHub(relayManager, relayHub.address, { from: relayOwner })
+    const baseRelayFee = 1
+    const pctRelayFee = 2
+    await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
+    await relayHub.registerRelayServer(baseRelayFee, pctRelayFee, 'url', { from: relayManager })
+
     paymaster = await TestPaymasterEverythingAccepted.new({ gas: 1e7 })
     await hub.depositFor(paymaster.address, { value: paymasterDeposit })
 
@@ -43,7 +53,7 @@ contract('TrustedBatchForwarder', ([from, relay, relayOwner]) => {
       baseRelayFee: '0',
       gasPrice: await web3.eth.getGasPrice(),
       gasLimit: 1e6.toString(),
-      relayAddress: from,
+      relayWorker: relayWorker,
       paymaster: paymaster.address
     }
   })
@@ -73,7 +83,7 @@ contract('TrustedBatchForwarder', ([from, relay, relayOwner]) => {
       })
 
       const ret = await hub.relayCall(relayRequest, signature, '0x', {
-        from: relay
+        from: relayWorker
       })
 
       // console.log(getLogs(ret))
@@ -110,7 +120,7 @@ contract('TrustedBatchForwarder', ([from, relay, relayOwner]) => {
       })
 
       const ret = await hub.relayCall(relayRequest, signature, '0x', {
-        from: relay
+        from: relayWorker
       })
       expectEvent(ret, 'TransactionRelayed', { status: '1' })
     })
@@ -138,7 +148,7 @@ contract('TrustedBatchForwarder', ([from, relay, relayOwner]) => {
       })
 
       const ret = await hub.relayCall(relayRequest, signature, '0x', {
-        from: relay
+        from: relayWorker
       })
       expectEvent(ret, 'TransactionRelayed', { status: '1' })
     })
