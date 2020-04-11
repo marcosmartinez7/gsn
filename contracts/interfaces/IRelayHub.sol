@@ -145,6 +145,7 @@ interface IRelayHub {
     ///
     /// Emits a TransactionRelayed event.
     function relayCall(
+        uint externalGasLimit,
         GSNTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData

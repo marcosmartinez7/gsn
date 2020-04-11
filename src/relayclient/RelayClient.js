@@ -120,7 +120,8 @@ class RelayClient {
     })
 
     const relayHub = this.createRelayHub(relayHubAddress)
-    const relayRequestAbiEncode = relayHub.methods.relayCall(relayRequestOrig, sig, approvalData).encodeABI()
+
+    const relayRequestAbiEncode = relayHub.methods.relayCall(tx.gasLimit, relayRequestOrig, sig, approvalData).encodeABI()
 
     if (
       utils.isSameAddress(ethUtils.bufferToHex(tx.to), relayHubAddress) &&

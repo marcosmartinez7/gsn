@@ -215,8 +215,8 @@ class RelayServer extends EventEmitter {
       throw new Error('canRelay failed in server: ' + canRelayRet.returnValue)
     }
     // Send relayed transaction
-    const method = this.relayHubContract.methods.relayCall(signedData.message, signature, approvalData)
     const requiredGas = maxPossibleGas + GAS_RESERVE
+    const method = this.relayHubContract.methods.relayCall( requiredGas, signedData.message, signature, approvalData)
     debug('maxPossibleGas is', typeof maxPossibleGas, maxPossibleGas)
     debug('requiredGas is', typeof requiredGas, requiredGas)
     const maxCharge = parseInt(

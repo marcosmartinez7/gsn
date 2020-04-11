@@ -139,7 +139,7 @@ contract('RelayClient', function (accounts) {
   }
   var arr = [null, func]
   arr.forEach(approveFunction => {
-    it('should send transaction to a relay and receive a response (' + (((typeof approveFunction === 'function') ? 'with' : 'without') + ' approveFunction)'), async function () {
+    it.only('should send transaction to a relay and receive a response (' + (((typeof approveFunction === 'function') ? 'with' : 'without') + ' approveFunction)'), async function () {
       const encoded = sr.contract.methods.emitMessage('hello world').encodeABI()
       const to = sr.address
       const options = {

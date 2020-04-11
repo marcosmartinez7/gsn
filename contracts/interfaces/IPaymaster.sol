@@ -73,8 +73,9 @@ interface IPaymaster {
      *
      * @param success - true if the relayed call succeeded, false if it reverted
      * @param gasUseWithoutPost - the actual amount of gas used by the entire transaction.
-              Does not included any estimate of how much gas PostRelayCall itself will consume.
-              NOTE: The gas overhead estimation is included in this number.
+     *        You should add `postRelayedCall.estimateGas` to this value, to get an almost-accurate
+     *        gas estimation (make sure to pass the exact context and `{from:relayHub}` )
+     *        NOTE: The gas overhead estimation is included in this number.
      * @param preRetVal - preRelayedCall() return value passed back to the recipient
      *
      * Revert in this functions causes a revert of the client's relayed call but not in the entire transaction

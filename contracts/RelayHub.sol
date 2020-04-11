@@ -44,7 +44,10 @@ contract RelayHub is IRelayHub {
     */
 
     // Gas cost of all relayCall() instructions after actual 'calculateCharge()'
-    uint256 constant private GAS_OVERHEAD = 38063;
+    uint256 constant private GAS_OVERHEAD = 36290+747;
+
+    uint256 constant public POST_GAS_OVERHEAD = 28552;
+    uint256 constant public POST_GAS_MSGLEN_FACTOR = 2_600_000;
 
     function getHubOverhead() external view returns (uint256) {
         return GAS_OVERHEAD;
@@ -227,6 +230,7 @@ contract RelayHub is IRelayHub {
      *
      */
     function relayCall(
+        uint externalGasLimit,
     // TODO: msg.sender used to be treated as 'relay' (now passed in a struct),
     //  make sure this does not have security impl
         GSNTypes.RelayRequest calldata relayRequest,
@@ -235,8 +239,9 @@ contract RelayHub is IRelayHub {
     )
     external
     {
-        uint256 initialGas = gasleft();
-        bytes4 functionSelector = LibBytes.readBytes4(relayRequest.encodedFunction, 0);
+        //for the dreaded stack to deep
+//        uint256 initialGas = gasleft();
+//        bytes4 functionSelector = LibBytes.readBytes4(relayRequest.encodedFunction, 0);
         // Initial soundness checks - the relay must make sure these pass, or it will pay for a reverted transaction.
         // The worker must be controlled by a manager with a locked stake
         require(workerToManager[msg.sender] != address(0), "Unknown relay worker");
@@ -274,7 +279,7 @@ contract RelayHub is IRelayHub {
                     relayRequest.relayData.senderAddress,
                     relayRequest.target,
                     relayRequest.relayData.paymaster,
-                    functionSelector,
+                    LibBytes.readBytes4(relayRequest.encodedFunction, 0), //functionSelector,
                     recipientContext);
                 return;
             }
@@ -288,16 +293,20 @@ contract RelayHub is IRelayHub {
         // RelayCallStatus value.
         RelayCallStatus status;
         {
+            //we want to pass the gas limit to the inner function, so we have to be explicit about it
+//            uint innerGasLimit = gasleft() - 5000;
+            //gasUsedSoFar = externalGasLimit-gasleft()
+            //offset = gasUsedSoFar + innerGasLimit = externalGasLimit-gasleft() + gasleft() - 5000
             bytes memory data =
-            abi.encodeWithSelector(this.recipientCallsAtomic.selector, relayRequest, signature, gasLimits, initialGas, calldatagascost(), bytes(recipientContext));
+            abi.encodeWithSelector(this.recipientCallsAtomic.selector, relayRequest, signature, gasLimits, externalGasLimit-gasleft(), bytes(recipientContext));
             (, bytes memory relayCallStatus) = address(this).call(data);
             status = abi.decode(relayCallStatus, (RelayCallStatus));
         }
 
         // We now perform the actual charge calculation, based on the measured gas used
         uint256 charge = calculateCharge(
-            calldatagascost() +
-            (initialGas - gasleft()) +
+//            calldatagascost() +
+            (externalGasLimit - gasleft()) +
             GAS_OVERHEAD,
             relayRequest.gasData
         );
@@ -314,7 +323,7 @@ contract RelayHub is IRelayHub {
             relayRequest.relayData.senderAddress,
             relayRequest.target,
             relayRequest.relayData.paymaster,
-            functionSelector,
+            LibBytes.readBytes4(relayRequest.encodedFunction, 0), //functionSelector,
             status,
             charge);
     }
@@ -323,6 +332,7 @@ contract RelayHub is IRelayHub {
         uint256 balanceBefore;
         bytes32 preReturnValue;
         bool relayedCallSuccess;
+        uint initgas;
         bytes data;
     }
 
@@ -331,15 +341,15 @@ contract RelayHub is IRelayHub {
         bytes calldata signature,
         GSNTypes.GasLimits calldata gasLimits,
         uint256 totalInitialGas,
-        uint256 calldataGas,
         bytes calldata recipientContext
     )
     external
     returns (RelayCallStatus)
     {
         AtomicData memory atomicData;
-        // A new gas measurement is performed inside recipientCallsAtomic, since
-        // due to EIP150 available gas amounts cannot be directly compared across external calls
+        //gas calculated just before recipientCallsAtomic.
+        // msglen affect the gas usage with almost-deterministic factor (found empirically)
+        atomicData.initgas = totalInitialGas + gasleft() + POST_GAS_OVERHEAD + msg.data.length * POST_GAS_MSGLEN_FACTOR / 1_000_000;
 
         // This external function can only be called by RelayHub itself, creating an internal transaction. Calls to the
         // recipient (preRelayedCall, the relayedCall, and postRelayedCall) are called from inside this transaction.
@@ -382,7 +392,7 @@ contract RelayHub is IRelayHub {
             recipientContext,
             atomicData.relayedCallSuccess,
             atomicData.preReturnValue,
-            totalInitialGas - gasleft() + GAS_OVERHEAD + calldataGas,
+            atomicData.initgas - gasleft(),
             relayRequest.gasData
         );
 
