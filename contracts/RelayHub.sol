@@ -46,8 +46,7 @@ contract RelayHub is IRelayHub {
     // Gas cost of all relayCall() instructions after actual 'calculateCharge()'
     uint256 constant private GAS_OVERHEAD = 36756;
 
-    uint256 constant public POST_GAS_OVERHEAD = 28552;
-    uint256 constant public POST_GAS_MSGLEN_FACTOR = 2_600_000;
+    uint256 constant public POST_GAS_OVERHEAD = 25856;
 
     function getHubOverhead() external view returns (uint256) {
         return GAS_OVERHEAD;
@@ -225,6 +224,12 @@ contract RelayHub is IRelayHub {
         return (maxPossibleGas, gasLimits);
     }
 
+    struct RelayCallLocal {
+        string recipientContext;
+        GSNTypes.GasLimits gasLimits;
+        RelayCallStatus status;
+        uint gasCalcHelper;
+    }
     /**
      * @notice Relay a transaction.
      *
@@ -249,15 +254,15 @@ contract RelayHub is IRelayHub {
             stakeManager.isRelayManagerStaked(workerToManager[msg.sender], MINIMUM_STAKE, MINIMUM_UNSTAKE_DELAY),
             "relay manager not staked"
         );
+        RelayCallLocal memory local;
         // A relay may use a higher gas price than the one requested by the signer (to e.g. get the transaction in a
         // block faster), but it must not be lower. The recipient will be charged for the requested gas price, not the
         // one used in the transaction.
         require(relayRequest.gasData.gasPrice <= tx.gasprice, "Invalid gas price");
         string memory recipientContext;
-        GSNTypes.GasLimits memory gasLimits;
         {
             uint256 maxPossibleGas;
-            (maxPossibleGas, gasLimits) = getAndValidateGasLimits(relayRequest.gasData, relayRequest.relayData.paymaster);
+            (maxPossibleGas, local.gasLimits) = getAndValidateGasLimits(relayRequest.gasData, relayRequest.relayData.paymaster);
 
             // We now verify the legitimacy of the transaction (it must be signed by the sender, and not be replayed),
             // and that the paymaster will agree to be charged for it.
@@ -270,7 +275,7 @@ contract RelayHub is IRelayHub {
                     relayRequest.encodedFunction,
                     relayRequest.gasData,
                     relayRequest.relayData),
-                maxPossibleGas, gasLimits.acceptRelayedCallGasLimit, signature, approvalData);
+                maxPossibleGas, local.gasLimits.acceptRelayedCallGasLimit, signature, approvalData);
 
             if (!success) {
                 emit CanRelayFailed(
@@ -291,16 +296,16 @@ contract RelayHub is IRelayHub {
         // Calls to the recipient are performed atomically inside an inner transaction which may revert in case of
         // errors in the recipient. In either case (revert or regular execution) the return data encodes the
         // RelayCallStatus value.
-        RelayCallStatus status;
         {
             //we want to pass the gas limit to the inner function, so we have to be explicit about it
-//            uint innerGasLimit = gasleft() - 5000;
+            uint innerGasLimit = gasleft()*63/64 - 5000;
             //gasUsedSoFar = externalGasLimit-gasleft()
-            //offset = gasUsedSoFar + innerGasLimit = externalGasLimit-gasleft() + gasleft() - 5000
+            //offset = gasUsedSoFar + innerGasLimit = externalGasLimit-gasleft() + gasleft()
+            local.gasCalcHelper = externalGasLimit + innerGasLimit - gasleft() + POST_GAS_OVERHEAD;
             bytes memory data =
-            abi.encodeWithSelector(this.recipientCallsAtomic.selector, relayRequest, signature, gasLimits, externalGasLimit-gasleft(), bytes(recipientContext));
-            (, bytes memory relayCallStatus) = address(this).call(data);
-            status = abi.decode(relayCallStatus, (RelayCallStatus));
+            abi.encodeWithSelector(this.recipientCallsAtomic.selector, relayRequest, signature, local.gasLimits, local.gasCalcHelper, bytes(recipientContext));
+            (, bytes memory relayCallStatus) = address(this).call.gas(innerGasLimit)(data);
+            local.status = abi.decode(relayCallStatus, (RelayCallStatus));
         }
 
         // We now perform the actual charge calculation, based on the measured gas used
@@ -324,7 +329,7 @@ contract RelayHub is IRelayHub {
             relayRequest.target,
             relayRequest.relayData.paymaster,
             LibBytes.readBytes4(relayRequest.encodedFunction, 0), //functionSelector,
-            status,
+            local.status,
             charge);
     }
 
@@ -332,7 +337,6 @@ contract RelayHub is IRelayHub {
         uint256 balanceBefore;
         bytes32 preReturnValue;
         bool relayedCallSuccess;
-        uint initgas;
         bytes data;
     }
 
@@ -340,16 +344,13 @@ contract RelayHub is IRelayHub {
         GSNTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         GSNTypes.GasLimits calldata gasLimits,
-        uint256 totalInitialGas,
+        uint256 gasCalcHelper,
         bytes calldata recipientContext
     )
     external
     returns (RelayCallStatus)
     {
         AtomicData memory atomicData;
-        //gas calculated just before recipientCallsAtomic.
-        // msglen affect the gas usage with almost-deterministic factor (found empirically)
-        atomicData.initgas = totalInitialGas + gasleft() + POST_GAS_OVERHEAD + msg.data.length * POST_GAS_MSGLEN_FACTOR / 1_000_000;
 
         // This external function can only be called by RelayHub itself, creating an internal transaction. Calls to the
         // recipient (preRelayedCall, the relayedCall, and postRelayedCall) are called from inside this transaction.
@@ -392,7 +393,7 @@ contract RelayHub is IRelayHub {
             recipientContext,
             atomicData.relayedCallSuccess,
             atomicData.preReturnValue,
-            atomicData.initgas - gasleft(),
+            gasCalcHelper - gasleft(),
             relayRequest.gasData
         );
 

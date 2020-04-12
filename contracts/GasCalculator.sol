@@ -1,4 +1,5 @@
 pragma solidity ^0.5.16;
+/* solhint-disable avoid-low-level-calls */
 
 //calculate gas usage from within a function.
 // this is a simplified model of RelayHub, just for calculating gas.
@@ -7,16 +8,17 @@ pragma solidity ^0.5.16;
 // inner "internalExec" can tell with some bias and
 contract GasCalculator {
 
-    uint constant msgLenFactor = 97;
-    uint constant overhead = 2933;
-    function exec(uint externalGasLimit, bytes calldata func) external {
-//        uint gas = gasleft();
+    uint public constant MSG_LEN_FACTOR = 97;
+    uint public constant OVERHEAD = 2933;
 
-        uint usedSoFar = msg.data.length*msgLenFactor/32 + overhead;
+    function exec(uint externalGasLimit, bytes calldata func) external {
+        //        uint gas = gasleft();
+
+        uint usedSoFar = msg.data.length * MSG_LEN_FACTOR / 32 + OVERHEAD;
         //some pre-innercall code
         //default calculation gives just a bit too little.
-        uint innerGasLimit = gasleft() * 62/64 - 5000;
-        usedSoFar += externalGasLimit -gasleft() + innerGasLimit;
+        uint innerGasLimit = gasleft() * 62 / 64 - 5000;
+        usedSoFar += externalGasLimit - gasleft() + innerGasLimit;
         (bool success, bytes memory data) = address(this).call.gas(innerGasLimit)(abi.encodeWithSelector(this.internalFunc.selector,
             usedSoFar, func
             ));
@@ -32,8 +34,9 @@ contract GasCalculator {
 
     event InnerGas(uint innerGasLimit, uint gasleft);
 
-    function internalFunc(uint usedSoFar, bytes calldata func) external returns (uint innerCalcGas){
-        (bool success, ) = address(this).call(func);
+    function internalFunc(uint usedSoFar, bytes calldata func) external returns (uint innerCalcGas) {
+
+        (bool success,) = address(this).call(func);
         (success);
 
         innerCalcGas = usedSoFar - gasleft();
@@ -54,6 +57,7 @@ contract GasCalculator {
 
     event Debug(bytes data);
 
+    /* solhint-disable no-empty-blocks */
     function empty(bytes calldata data) external {
     }
 }
