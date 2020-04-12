@@ -465,7 +465,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           const { tx } = await relayHubInstance.relayCall(gas, relayRequestPaymasterWithContext,
             signatureWithContextPaymaster, '0x', {
               from: relayWorker,
-              gas, gasPrice
+              gas,
+              gasPrice
             })
 
           await expectEvent.inTransaction(tx, TestPaymasterStoreContext, 'SampleRecipientPostCallWithValues', {
@@ -487,7 +488,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           const { logs } = await relayHubInstance.relayCall(gas, relayRequestMisbehavingPaymaster,
             signatureWithMisbehavingPaymaster, '0x', {
               from: relayWorker,
-              gas, gasPrice
+              gas,
+              gasPrice
             })
 
           expectEvent.inLogs(logs, 'CanRelayFailed', { reason: 'invalid code' })
@@ -496,7 +498,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         it('should not accept relay requests if gas limit is too low for a relayed transaction', async function () {
           // Adding gasReserve is not enough by a few wei as some gas is spent before gasleft().
           const gasReserve = 99999
-          const gas= parseInt(gasLimit) + gasReserve
+          const gas = parseInt(gasLimit) + gasReserve
           await expectRevert(
             relayHubInstance.relayCall(gas, relayRequestMisbehavingPaymaster, signatureWithMisbehavingPaymaster, '0x', {
               from: relayWorker,
@@ -512,7 +514,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           await expectRevert(
             relayHubInstance.relayCall(gas, relayRequestMisbehavingPaymaster, signatureWithMisbehavingPaymaster, '0x', {
               from: relayWorker,
-              gas, gasPrice: parseInt(gasPrice) - 1
+              gas,
+              gasPrice: parseInt(gasPrice) - 1
             }),
             'Invalid gas price')
         })
@@ -536,7 +539,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             await expectRevert(
               relayHubInstance.relayCall(gas, relayRequestPaymaster2, signatureWithMisbehavingPaymaster, '0x', {
                 from: relayWorker,
-                gas, gasPrice
+                gas,
+                gasPrice
               }),
               'Paymaster balance too low')
           })

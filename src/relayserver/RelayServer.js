@@ -216,7 +216,7 @@ class RelayServer extends EventEmitter {
     }
     // Send relayed transaction
     const requiredGas = maxPossibleGas + GAS_RESERVE
-    const method = this.relayHubContract.methods.relayCall( requiredGas, signedData.message, signature, approvalData)
+    const method = this.relayHubContract.methods.relayCall(requiredGas, signedData.message, signature, approvalData)
     debug('maxPossibleGas is', typeof maxPossibleGas, maxPossibleGas)
     debug('requiredGas is', typeof requiredGas, requiredGas)
     const maxCharge = parseInt(

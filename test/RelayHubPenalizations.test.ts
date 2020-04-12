@@ -273,7 +273,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const gas = 1e6
           const relayCallTx = await relayHub.relayCall(gas, relayRequest, signature, '0x', {
             from: relayWorker,
-            gas, gasPrice
+            gas,
+            gasPrice
           })
 
           const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, chainId)
