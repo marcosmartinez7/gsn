@@ -60,12 +60,12 @@ if [ -t 1 ]; then TTY="-ti" ; else TTY="-i"; fi
 
 # trap onexit EXIT
 
-test -z "$NO_PORTS" && DOCK_PORTS="-p 8090:8090 -p 8545:8545"
+#test -z "$NO_PORTS" && DOCK_PORTS="-p 8090:8090 -p 8545:8545"
 
 docker run $DOCK_OPT -u $UID:$GID  \
-	--name $DOCKNAME \
+	--name $DOCKNAME --network="host" \
 	$DOCK_PORTS \
 	$ENVVARS --rm $TTY -v $TMP_PASSWD:/etc/passwd \
 	$FOLDERS $FOLDER_MAPS  \
-	-w `pwd` $DOCKNAME $*
+	-w `pwd` $DOCKNAME $* 
 

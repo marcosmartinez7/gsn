@@ -154,6 +154,7 @@ func relayHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("{\"error\":\"" + err.Error() + "\"}"))
 		return
 	}
+	log.Println(*request)
 	signedTx, err := relay.CreateRelayTransaction(*request)
 	if err != nil {
 		log.Println("Failed to relay")
@@ -250,14 +251,7 @@ func refreshBlockchainView() {
 		return
 	}
 	waitForOwnerActions()
-	when, err := relay.RegistrationDate()
-	for ; err != nil || when == 0; when, err = relay.RegistrationDate() {
-		if err != nil {
-			log.Println(err)
-		}
-		ready = false
-		sleep(15*time.Second, devMode)
-	}
+
 
 	for err := relay.RefreshGasPrice(); err != nil; err = relay.RefreshGasPrice() {
 		if err != nil {
@@ -322,14 +316,7 @@ func keepAlive() {
 		return
 	}
 	waitForOwnerActions()
-	when, err := relay.RegistrationDate()
-	log.Println("when registered:", when, "unix:", time.Unix(when, 0))
-	if err != nil {
-		log.Println(err)
-	} else if time.Now().Unix()-when < delayBetweenRegistrations {
-		log.Println("Relay registered lately. No need to reregister")
-		return
-	}
+	
 	log.Println("Registering relay...")
 	for {
 		err := relay.RegisterRelay()
